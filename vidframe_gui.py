@@ -26,7 +26,7 @@ from gui.log_console import LogConsole
 
 
 QSS = """
-* { font-family: "Menlo", "JetBrains Mono", "Consolas", monospace; font-size: 12px; }
+* { font-family: "Menlo", "Consolas", monospace; font-size: 12px; }
 QMainWindow, QWidget { background: #17181c; color: #e6e7ea; }
 
 /* Native unified toolbar — force our own bg so titlebar tint doesn't stand out */

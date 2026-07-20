@@ -65,6 +65,9 @@ VIDEO_EXTS   = {'.mkv', '.mp4', '.avi', '.mov', '.m2ts', '.ts'}
 
 def _quiet_opencv_logs():
     try:
+        import os
+        os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
+        os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
         # Keep OpenCV's FFmpeg backend from printing benign EOF warnings.
         cv2.setLogLevel(2)
     except Exception:
