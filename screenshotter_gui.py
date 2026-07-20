@@ -1,24 +1,18 @@
 #!/usr/bin/env python3
-"""
-Screenshotter — Desktop GUI (PySide6)
-
-Modern flat-design window with sidebar navigation. Wraps frame_extractor
-and character_detector so all video-processing logic stays shared with the CLI/TUI.
-"""
+"""Screenshotter — Desktop GUI (PySide6)."""
 
 import sys
 
 try:
-    from PySide6.QtCore import Qt
-    from PySide6.QtGui import QIcon
+    from PySide6.QtCore import Qt, QSize
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-        QPushButton, QStackedWidget, QProgressBar, QFrame, QListWidget,
-        QListWidgetItem, QSplitter,
+        QPushButton, QStackedWidget, QProgressBar, QFrame, QToolButton,
+        QSizePolicy,
     )
 except ImportError:
     print("Missing dependency: PySide6", file=sys.stderr)
-    print("Install with:  uv pip install PySide6", file=sys.stderr)
+    print("Install with:  uv sync", file=sys.stderr)
     sys.exit(1)
 
 import frame_extractor
@@ -29,126 +23,189 @@ from gui.worker import GuiWorker
 from gui.log_console import LogConsole
 
 
-DARK_QSS = """
-QMainWindow, QWidget { background: #1e1e1e; color: #e8e8e8; }
-QGroupBox {
-    border: 1px solid #333; border-radius: 8px; margin-top: 12px; padding: 12px;
-    font-weight: 600;
+QSS = """
+* { font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif; font-size: 12px; }
+QMainWindow, QWidget { background: #17181c; color: #e6e7ea; }
+
+/* Top bar */
+#topbar { background: #101114; border-bottom: 1px solid #24262c; }
+#brand  { color: #e6e7ea; font-weight: 700; font-size: 13px; padding-left: 4px; letter-spacing: 0.3px; }
+
+/* Segmented tabs */
+QToolButton[seg="true"] {
+    background: transparent; color: #8a8f98; border: none;
+    padding: 6px 14px; border-radius: 6px; font-weight: 600;
 }
-QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; color: #ccc; }
-QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit {
-    background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 4px;
-    padding: 4px 6px; color: #e8e8e8;
+QToolButton[seg="true"]:hover { color: #e6e7ea; background: #1e2026; }
+QToolButton[seg="true"]:checked { color: #ffffff; background: #2a2d34; }
+
+/* Inputs */
+QGroupBox {
+    border: 1px solid #22242a; border-radius: 8px;
+    margin-top: 14px; padding: 10px 12px;
+    font-weight: 600; color: #b8bcc4;
+}
+QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
+
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+    background: #1c1e23; border: 1px solid #2a2d34; border-radius: 5px;
+    padding: 4px 8px; color: #e6e7ea; min-height: 20px;
 }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
-    border: 1px solid #0078d4;
+    border: 1px solid #4b8bf5;
 }
+QComboBox::drop-down { border: none; width: 18px; }
+QComboBox QAbstractItemView { background: #1c1e23; border: 1px solid #2a2d34; selection-background-color: #2f3239; }
+
 QPushButton {
-    background: #2f2f2f; border: 1px solid #444; border-radius: 4px;
-    padding: 6px 14px; color: #e8e8e8;
+    background: #24262c; border: 1px solid #2c2f36; border-radius: 5px;
+    padding: 5px 12px; color: #e6e7ea;
 }
-QPushButton:hover { background: #3a3a3a; }
-QPushButton:disabled { color: #777; }
+QPushButton:hover { background: #2c2f36; }
+QPushButton:disabled { color: #55585f; }
+
+QPushButton#primary {
+    background: #4b8bf5; border: none; color: white; font-weight: 600;
+    padding: 7px 20px; border-radius: 6px;
+}
+QPushButton#primary:hover  { background: #5b96f6; }
+QPushButton#primary:pressed{ background: #3f7ce0; }
+QPushButton#primary:disabled { background: #3a3d44; color: #7a7d84; }
+
 QListWidget {
-    background: #262626; border: 1px solid #333; border-radius: 4px;
+    background: #1a1c21; border: 1px solid #22242a; border-radius: 6px;
+    padding: 4px;
 }
+QListWidget::item { padding: 3px 6px; border-radius: 3px; }
+QListWidget::item:hover { background: #22252b; }
+
 QProgressBar {
-    background: #2a2a2a; border: 1px solid #333; border-radius: 4px;
-    text-align: center; height: 22px; color: #e8e8e8;
+    background: #1c1e23; border: 1px solid #22242a; border-radius: 4px;
+    text-align: center; height: 6px; color: transparent;
 }
-QProgressBar::chunk { background: #0078d4; border-radius: 4px; }
-QLabel { color: #e8e8e8; }
+QProgressBar::chunk { background: #4b8bf5; border-radius: 3px; }
+
+QRadioButton, QCheckBox { color: #c5c8cf; }
+QSlider::groove:horizontal { background: #2a2d34; height: 4px; border-radius: 2px; }
+QSlider::handle:horizontal { background: #4b8bf5; width: 14px; margin: -6px 0; border-radius: 7px; }
+
+QLabel[muted="true"] { color: #7a7f88; }
+QLabel[title="true"] { font-size: 14px; font-weight: 700; color: #f2f3f5; }
+
+/* Log */
+#logframe { background: #101114; border-top: 1px solid #22242a; }
+QPlainTextEdit { background: transparent; border: none; color: #b8bcc4; }
 """
 
 
-class Sidebar(QListWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setFixedWidth(200)
-        self.setStyleSheet("""
-            QListWidget { background: #171717; border: none; padding: 12px 0; }
-            QListWidget::item { padding: 12px 20px; color: #b8b8b8; }
-            QListWidget::item:selected { background: #0078d4; color: white; border-radius: 4px; margin: 0 8px; }
-            QListWidget::item:hover { background: #262626; }
-        """)
+class SegButton(QToolButton):
+    def __init__(self, text):
+        super().__init__()
+        self.setText(text)
+        self.setProperty("seg", True)
+        self.setCheckable(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Screenshotter")
-        self.resize(1100, 780)
+        self.resize(880, 640)
+        self.setMinimumSize(QSize(760, 560))
         self.worker: GuiWorker | None = None
 
-        # Sidebar
-        self.sidebar = Sidebar()
-        for label in ("🎬  Extract Frames", "🤖  Detect Character"):
-            self.sidebar.addItem(QListWidgetItem(label))
-        self.sidebar.currentRowChanged.connect(self._switch_page)
+        # ── Top bar (segmented tabs) ──
+        topbar = QFrame()
+        topbar.setObjectName("topbar")
+        topbar.setFixedHeight(44)
+        top_lay = QHBoxLayout(topbar)
+        top_lay.setContentsMargins(14, 6, 14, 6)
+        top_lay.setSpacing(4)
 
-        # Pages
+        brand = QLabel("Screenshotter")
+        brand.setObjectName("brand")
+        top_lay.addWidget(brand)
+        top_lay.addSpacing(20)
+
+        self.tab_extract = SegButton("Extract")
+        self.tab_detect  = SegButton("Detect")
+        self.tab_extract.setChecked(True)
+        self.tab_extract.clicked.connect(lambda: self._switch(0))
+        self.tab_detect.clicked.connect(lambda: self._switch(1))
+        top_lay.addWidget(self.tab_extract)
+        top_lay.addWidget(self.tab_detect)
+        top_lay.addStretch(1)
+
+        self.log_toggle = QToolButton()
+        self.log_toggle.setText("Log ▾")
+        self.log_toggle.setProperty("seg", True)
+        self.log_toggle.setCheckable(True)
+        self.log_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.log_toggle.clicked.connect(self._toggle_log)
+        top_lay.addWidget(self.log_toggle)
+
+        # ── Pages ──
         self.pages = QStackedWidget()
         self.extract_page = ExtractPage()
         self.detect_page = DetectPage()
         self.pages.addWidget(self.extract_page)
         self.pages.addWidget(self.detect_page)
-
         self.extract_page.btn_start.clicked.connect(self._start_extract)
         self.detect_page.btn_start.clicked.connect(self._start_detect)
 
-        # Progress + log panel
-        bottom = self._build_bottom()
-
-        # Layout
-        content = QWidget()
-        vlay = QVBoxLayout(content)
-        vlay.setContentsMargins(0, 0, 0, 0)
-        vlay.setSpacing(0)
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.addWidget(self.pages)
-        splitter.addWidget(bottom)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
-        vlay.addWidget(splitter)
-
-        root = QWidget()
-        hlay = QHBoxLayout(root)
-        hlay.setContentsMargins(0, 0, 0, 0)
-        hlay.setSpacing(0)
-        hlay.addWidget(self.sidebar)
-        hlay.addWidget(content, 1)
-        self.setCentralWidget(root)
-
-        self.setStyleSheet(DARK_QSS)
-        self.sidebar.setCurrentRow(0)
-
-    def _build_bottom(self):
-        frame = QFrame()
-        frame.setStyleSheet("QFrame { background: #171717; border-top: 1px solid #333; }")
-        lay = QVBoxLayout(frame)
-        lay.setContentsMargins(24, 12, 24, 12)
-
-        row = QHBoxLayout()
+        # ── Status bar (thin) ──
+        status = QFrame()
+        status.setObjectName("logframe")
+        status.setFixedHeight(38)
+        s_lay = QHBoxLayout(status)
+        s_lay.setContentsMargins(14, 8, 14, 8)
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
         self.status_label = QLabel("Idle")
-        self.status_label.setStyleSheet("color: #aaa;")
+        self.status_label.setProperty("muted", True)
+        self.status_label.setMinimumWidth(220)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.btn_cancel = QPushButton("Cancel")
         self.btn_cancel.setEnabled(False)
         self.btn_cancel.clicked.connect(self._cancel)
-        row.addWidget(self.progress_bar, 1)
-        row.addWidget(self.status_label)
-        row.addWidget(self.btn_cancel)
-        lay.addLayout(row)
+        s_lay.addWidget(self.progress_bar, 1)
+        s_lay.addWidget(self.status_label)
+        s_lay.addWidget(self.btn_cancel)
 
+        # ── Log panel (hidden by default) ──
+        self.log_frame = QFrame()
+        self.log_frame.setObjectName("logframe")
+        lf_lay = QVBoxLayout(self.log_frame)
+        lf_lay.setContentsMargins(0, 0, 0, 0)
         self.log = LogConsole()
-        self.log.setFixedHeight(180)
-        lay.addWidget(self.log)
-        return frame
+        self.log.setFixedHeight(160)
+        lf_lay.addWidget(self.log)
+        self.log_frame.setVisible(False)
 
-    def _switch_page(self, idx: int):
+        # ── Assemble ──
+        root = QWidget()
+        vlay = QVBoxLayout(root)
+        vlay.setContentsMargins(0, 0, 0, 0)
+        vlay.setSpacing(0)
+        vlay.addWidget(topbar)
+        vlay.addWidget(self.pages, 1)
+        vlay.addWidget(status)
+        vlay.addWidget(self.log_frame)
+        self.setCentralWidget(root)
+        self.setStyleSheet(QSS)
+
+    # ── slots ──
+    def _switch(self, idx):
+        self.tab_extract.setChecked(idx == 0)
+        self.tab_detect.setChecked(idx == 1)
         self.pages.setCurrentIndex(idx)
+
+    def _toggle_log(self):
+        show = self.log_toggle.isChecked()
+        self.log_frame.setVisible(show)
+        self.log_toggle.setText("Log ▴" if show else "Log ▾")
 
     def _start_extract(self):
         cfg = self.extract_page.build_config()
@@ -160,7 +217,7 @@ class MainWindow(QMainWindow):
         cfg = self.detect_page.build_config()
         if cfg is None:
             return
-        self.log.append_line("Loading models (may take a while on first run)…")
+        self.log.append_line("Loading models (first run downloads ~700 MB)…")
         self._start_worker(character_detector.run, cfg)
 
     def _start_worker(self, target, config):
@@ -170,7 +227,7 @@ class MainWindow(QMainWindow):
         self.detect_page.btn_start.setEnabled(False)
         self.btn_cancel.setEnabled(True)
         self.progress_bar.setValue(0)
-        self.status_label.setText("Running…")
+        self.status_label.setText("Starting…")
         self.log.append_line(f"Started with {len(config.get('videos', []))} video(s).")
 
         self.worker = GuiWorker(target, config)
@@ -181,12 +238,12 @@ class MainWindow(QMainWindow):
 
     def _on_progress(self, pct: float, saved: int, name: str):
         self.progress_bar.setValue(int(pct))
-        self.status_label.setText(f"{name}  •  saved {saved}")
+        self.status_label.setText(f"{name} · {saved} saved")
 
     def _on_done(self, total: int):
         self.progress_bar.setValue(100)
-        self.status_label.setText(f"Done — total {total}")
-        self.log.append_line(f"Finished. Total screenshots: {total}")
+        self.status_label.setText(f"Done · {total} saved")
+        self.log.append_line(f"Finished. Total: {total}")
         self.extract_page.btn_start.setEnabled(True)
         self.detect_page.btn_start.setEnabled(True)
         self.btn_cancel.setEnabled(False)

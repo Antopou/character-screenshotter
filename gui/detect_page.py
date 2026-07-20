@@ -3,8 +3,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
-    QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QListWidgetItem,
-    QFileDialog, QGroupBox, QFormLayout, QSlider, QMessageBox,
+    QSpinBox, QComboBox, QListWidget, QListWidgetItem,
+    QFileDialog, QGroupBox, QSlider, QMessageBox, QToolButton, QFrame,
 )
 
 import frame_extractor
@@ -18,109 +18,141 @@ class DetectPage(QWidget):
 
     def _build(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(16)
+        root.setContentsMargins(20, 14, 20, 14)
+        root.setSpacing(10)
 
         title = QLabel("Detect Character")
-        title.setStyleSheet("font-size: 22px; font-weight: 600;")
+        title.setProperty("title", True)
         root.addWidget(title)
 
-        sub = QLabel("AI: DeepDanbooru tag match + optional reference image similarity.")
-        sub.setStyleSheet("color: gray;")
-        root.addWidget(sub)
-
         # Videos
-        vid_box = QGroupBox("Videos")
-        vl = QVBoxLayout(vid_box)
+        vids = QGroupBox("Videos")
+        vl = QVBoxLayout(vids)
+        vl.setContentsMargins(10, 14, 10, 10)
+        vl.setSpacing(6)
         row = QHBoxLayout()
+        row.setSpacing(6)
         self.folder_edit = QLineEdit()
-        self.folder_edit.setPlaceholderText("Video folder…")
-        btn_folder = QPushButton("Browse folder…")
+        self.folder_edit.setPlaceholderText("No folder selected")
+        self.folder_edit.setReadOnly(True)
+        btn_folder = QPushButton("Folder")
         btn_folder.clicked.connect(self._pick_folder)
-        btn_files = QPushButton("Pick files…")
+        btn_files = QPushButton("Files")
         btn_files.clicked.connect(self._pick_files)
         row.addWidget(self.folder_edit, 1)
         row.addWidget(btn_folder)
         row.addWidget(btn_files)
         vl.addLayout(row)
         self.vid_list = QListWidget()
-        self.vid_list.setMinimumHeight(120)
+        self.vid_list.setMinimumHeight(100)
+        self.vid_list.setMaximumHeight(160)
         vl.addWidget(self.vid_list)
-        root.addWidget(vid_box)
+        root.addWidget(vids)
 
-        # Detection
-        det_box = QGroupBox("Detection")
-        form = QFormLayout(det_box)
-
+        # Main options — tag + reference
+        tag_row = QHBoxLayout()
+        tag_row.setSpacing(8)
+        tag_row.addWidget(QLabel("Tag"))
         self.tag_edit = QLineEdit()
-        self.tag_edit.setPlaceholderText("e.g. rem_(re:zero)   (blank = skip DeepDanbooru)")
-        form.addRow("Character tag:", self.tag_edit)
+        self.tag_edit.setPlaceholderText("e.g. rem_(re:zero)   — blank to skip DeepDanbooru")
+        tag_row.addWidget(self.tag_edit, 1)
+        root.addLayout(tag_row)
 
         ref_row = QHBoxLayout()
+        ref_row.setSpacing(8)
+        ref_row.addWidget(QLabel("Refs"))
         self.ref_edit = QLineEdit("references")
-        btn_ref = QPushButton("Browse…")
-        btn_ref.clicked.connect(self._pick_ref)
         ref_row.addWidget(self.ref_edit, 1)
+        btn_ref = QPushButton("…")
+        btn_ref.setFixedWidth(30)
+        btn_ref.clicked.connect(self._pick_ref)
         ref_row.addWidget(btn_ref)
-        form.addRow("Reference folder:", ref_row)
+        ref_row.addSpacing(10)
+        ref_row.addWidget(QLabel("Output"))
+        self.out_edit = QLineEdit("screenshots")
+        ref_row.addWidget(self.out_edit, 1)
+        btn_out = QPushButton("…")
+        btn_out.setFixedWidth(30)
+        btn_out.clicked.connect(self._pick_output)
+        ref_row.addWidget(btn_out)
+        root.addLayout(ref_row)
 
-        self.slider_tag = self._make_slider(30, 80, 45)
-        form.addRow("Tag threshold:", self._slider_row(self.slider_tag, scale=100))
+        # Advanced
+        self.adv_toggle = QToolButton()
+        self.adv_toggle.setText("▸ Advanced")
+        self.adv_toggle.setCheckable(True)
+        self.adv_toggle.setStyleSheet(
+            "QToolButton { color: #8a8f98; border: none; padding: 4px 2px; }"
+            "QToolButton:hover { color: #e6e7ea; }"
+        )
+        self.adv_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.adv_toggle.clicked.connect(self._toggle_adv)
+        root.addWidget(self.adv_toggle)
 
-        self.slider_match = self._make_slider(60, 90, 72)
-        form.addRow("Match threshold:", self._slider_row(self.slider_match, scale=100))
+        self.adv = QFrame()
+        av = QVBoxLayout(self.adv)
+        av.setContentsMargins(4, 0, 4, 0)
+        av.setSpacing(8)
 
+        av.addLayout(self._slider("Tag threshold", 30, 80, 45, "slider_tag"))
+        av.addLayout(self._slider("Match threshold", 60, 90, 72, "slider_match"))
+
+        misc = QHBoxLayout()
+        misc.setSpacing(8)
+        misc.addWidget(QLabel("Combine"))
         self.combo_combine = QComboBox()
         self.combo_combine.addItems(["either", "both"])
-        form.addRow("Combine mode:", self.combo_combine)
-
+        self.combo_combine.setFixedWidth(90)
+        misc.addWidget(self.combo_combine)
+        misc.addSpacing(12)
+        misc.addWidget(QLabel("Checks/s"))
         self.spin_cps = QSpinBox()
         self.spin_cps.setRange(1, 30)
         self.spin_cps.setValue(1)
-        form.addRow("Checks/sec:", self.spin_cps)
-
+        self.spin_cps.setFixedWidth(60)
+        misc.addWidget(self.spin_cps)
+        misc.addSpacing(12)
+        misc.addWidget(QLabel("Min gap (s)"))
         self.spin_gap = QSpinBox()
         self.spin_gap.setRange(0, 120)
         self.spin_gap.setValue(4)
-        form.addRow("Min gap (sec):", self.spin_gap)
+        self.spin_gap.setFixedWidth(60)
+        misc.addWidget(self.spin_gap)
+        misc.addStretch(1)
+        av.addLayout(misc)
 
-        out_row = QHBoxLayout()
-        self.out_edit = QLineEdit("screenshots")
-        btn_out = QPushButton("Browse…")
-        btn_out.clicked.connect(self._pick_output)
-        out_row.addWidget(self.out_edit, 1)
-        out_row.addWidget(btn_out)
-        form.addRow("Output folder:", out_row)
+        self.adv.setVisible(False)
+        root.addWidget(self.adv)
 
-        root.addWidget(det_box)
+        root.addStretch(1)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch(1)
-        self.btn_start = QPushButton("Start ▶")
-        self.btn_start.setMinimumHeight(38)
-        self.btn_start.setStyleSheet(
-            "QPushButton { background: #0078d4; color: white; border-radius: 6px; padding: 6px 24px; font-weight: 600; }"
-            "QPushButton:hover { background: #1084dd; }"
-            "QPushButton:disabled { background: #7a7a7a; }"
-        )
+        self.btn_start = QPushButton("Start  →")
+        self.btn_start.setObjectName("primary")
         btn_row.addWidget(self.btn_start)
         root.addLayout(btn_row)
-        root.addStretch(1)
 
-    def _make_slider(self, lo, hi, val):
+    def _slider(self, label, lo, hi, val, attr):
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(QLabel(label))
         s = QSlider(Qt.Orientation.Horizontal)
         s.setRange(lo, hi)
         s.setValue(val)
-        return s
-
-    def _slider_row(self, slider, scale):
-        row = QHBoxLayout()
-        lbl = QLabel(f"{slider.value() / scale:.2f}")
-        lbl.setMinimumWidth(40)
-        slider.valueChanged.connect(lambda v: lbl.setText(f"{v/scale:.2f}"))
-        row.addWidget(slider, 1)
+        setattr(self, attr, s)
+        lbl = QLabel(f"{val/100:.2f}")
+        lbl.setFixedWidth(40)
+        lbl.setProperty("muted", True)
+        s.valueChanged.connect(lambda v: lbl.setText(f"{v/100:.2f}"))
+        row.addWidget(s, 1)
         row.addWidget(lbl)
         return row
+
+    def _toggle_adv(self):
+        on = self.adv_toggle.isChecked()
+        self.adv.setVisible(on)
+        self.adv_toggle.setText("▾ Advanced" if on else "▸ Advanced")
 
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Video folder", str(Path.home()))
@@ -128,8 +160,7 @@ class DetectPage(QWidget):
             self.folder_edit.setText(folder)
             p = Path(folder)
             self.selected_videos = sorted(
-                f for f in p.iterdir()
-                if f.suffix.lower() in frame_extractor.VIDEO_EXTS
+                f for f in p.iterdir() if f.suffix.lower() in frame_extractor.VIDEO_EXTS
             )
             self._refresh_list()
 
@@ -139,6 +170,7 @@ class DetectPage(QWidget):
             self, "Pick videos", str(Path.home()), f"Videos ({exts})",
         )
         if files:
+            self.folder_edit.setText(str(Path(files[0]).parent))
             self.selected_videos = [Path(f) for f in files]
             self._refresh_list()
 
@@ -180,7 +212,7 @@ class DetectPage(QWidget):
             QMessageBox.warning(self, "Nothing to detect",
                                 "Provide a character tag OR a reference folder with images.")
             return None
-        cfg = {
+        return {
             "videos": videos,
             "CHARACTER_TAG": tag,
             "REFERENCE_FOLDER": ref or "references",
@@ -191,4 +223,3 @@ class DetectPage(QWidget):
             "MIN_SECONDS_GAP": self.spin_gap.value(),
             "OUTPUT_FOLDER": self.out_edit.text().strip() or "screenshots",
         }
-        return cfg
