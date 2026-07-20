@@ -19,6 +19,8 @@ QListWidget#pathPopup {
     color: #e6e7ea;
     padding: 4px;
     outline: 0;
+    font-family: "Menlo", "JetBrains Mono", "Consolas", monospace;
+    font-size: 12px;
 }
 QListWidget#pathPopup::item {
     padding: 5px 8px;
