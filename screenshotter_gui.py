@@ -84,6 +84,8 @@ QListWidget {
 }
 QListWidget::item { padding: 3px 6px; border-radius: 3px; }
 QListWidget::item:hover { background: #22252b; }
+QListWidget::item:selected { background: #2f3441; color: #ffffff; }
+QListWidget::item:selected:!active { background: #262a34; }
 
 QProgressBar {
     background: #1c1e23; border: 1px solid #22242a; border-radius: 4px;
@@ -101,6 +103,31 @@ QLabel[title="true"] { font-size: 14px; font-weight: 700; color: #f2f3f5; }
 /* Log */
 #logframe { background: #101114; border-top: 1px solid #22242a; }
 QPlainTextEdit { background: transparent; border: none; color: #b8bcc4; }
+
+/* Flat overlay scrollbars — no arrows */
+QScrollBar:vertical {
+    background: transparent; width: 8px; margin: 2px 2px 2px 0;
+}
+QScrollBar::handle:vertical {
+    background: #3a3d44; border-radius: 4px; min-height: 30px;
+}
+QScrollBar::handle:vertical:hover { background: #4b4f57; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0; width: 0; border: none; background: none;
+}
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+
+QScrollBar:horizontal {
+    background: transparent; height: 8px; margin: 0 2px 2px 2px;
+}
+QScrollBar::handle:horizontal {
+    background: #3a3d44; border-radius: 4px; min-width: 30px;
+}
+QScrollBar::handle:horizontal:hover { background: #4b4f57; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    height: 0; width: 0; border: none; background: none;
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
 """
 
 
@@ -111,6 +138,7 @@ class SegButton(QToolButton):
         self.setProperty("seg", True)
         self.setCheckable(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
 
 
 class MainWindow(QMainWindow):
@@ -148,6 +176,7 @@ class MainWindow(QMainWindow):
         self.log_toggle.setProperty("seg", True)
         self.log_toggle.setCheckable(True)
         self.log_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.log_toggle.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.log_toggle.clicked.connect(self._toggle_log)
         tb.addWidget(self.log_toggle)
 
@@ -175,6 +204,7 @@ class MainWindow(QMainWindow):
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.btn_cancel = QPushButton("Cancel")
         self.btn_cancel.setEnabled(False)
+        self.btn_cancel.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.btn_cancel.clicked.connect(self._cancel)
         s_lay.addWidget(self.progress_bar, 1)
         s_lay.addWidget(self.status_label)
@@ -200,6 +230,9 @@ class MainWindow(QMainWindow):
         vlay.addWidget(self.log_frame)
         self.setCentralWidget(root)
         self.setStyleSheet(QSS)
+        # Don't auto-focus any field on launch; wait for user Tab
+        root.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        root.setFocus()
 
         # Restore geometry + last tab
         geo = self.settings.value("geometry")
