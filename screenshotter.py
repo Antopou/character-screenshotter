@@ -57,40 +57,51 @@ _SENTINEL_HOME   = "__HOME__"
 _SENTINEL_CWD    = "__CWD__"
 _SENTINEL_MANUAL = "__MANUAL__"
 _SENTINEL_CANCEL = "__CANCEL__"
+_SENTINEL_MKDIR  = "__MKDIR__"
 
 
 ESC_KEYBIND = {"skip": [{"key": "escape"}]}
 
 
-def browse_for_folder(start=None):
+def browse_for_folder(start=None, purpose="videos"):
     """
     Interactive directory navigator. Arrow-select through file tree.
     ESC = back (undo last navigation).
-    Returns folder Path (containing videos) or None if cancelled.
+    purpose: "videos" (default) or "output" (adds "create new folder" option,
+             shows folder browser without video counts).
+    Returns folder Path or None if cancelled.
     """
     start_path = Path(start or Path.cwd()).expanduser().resolve()
     history = [start_path]
+    is_output = purpose == "output"
 
     while True:
         current = history[-1]
         subdirs = list_subdirs(current)
-        videos_here = list_videos(current)
+        videos_here = [] if is_output else list_videos(current)
 
         choices = []
-        choices.append(Choice(_SENTINEL_PICK,
-                              name=f"✅  Use this folder  ({len(videos_here)} video(s) here)"))
+        pick_label = (f"✅  Save output HERE  ({current})" if is_output
+                      else f"✅  Use this folder  ({len(videos_here)} video(s) here)")
+        choices.append(Choice(_SENTINEL_PICK, name=pick_label))
         if current.parent != current:
             choices.append(Choice(_SENTINEL_UP, name=".. (up one level)"))
 
         for d in subdirs:
-            n_vids = len(list_videos(d))
-            tag = f"  🎬 {n_vids}" if n_vids else ""
-            choices.append(Choice(str(d), name=f"📁  {d.name}/{tag}"))
+            if is_output:
+                choices.append(Choice(str(d), name=f"📁  {d.name}/"))
+            else:
+                n_vids = len(list_videos(d))
+                tag = f"  🎬 {n_vids}" if n_vids else ""
+                choices.append(Choice(str(d), name=f"📁  {d.name}/{tag}"))
 
-        for v in videos_here:
-            choices.append(Choice(f"__FILE__{v}", name=f"🎬  {v.name}",
-                                  enabled=False))
+        if not is_output:
+            for v in videos_here:
+                choices.append(Choice(f"__FILE__{v}", name=f"🎬  {v.name}",
+                                      enabled=False))
 
+        if is_output:
+            choices.append(Choice(_SENTINEL_MKDIR, name="➕  Create new subfolder here"))
         choices.append(Choice(_SENTINEL_HOME,   name="⌂  Jump to $HOME"))
         choices.append(Choice(_SENTINEL_CWD,    name="⌂  Jump to current working dir"))
         choices.append(Choice(_SENTINEL_MANUAL, name="⌨  Type path manually"))
@@ -130,10 +141,24 @@ def browse_for_folder(start=None):
             typed = inquirer.filepath(
                 message="Path:",
                 default=str(current),
-                only_directories=True,
-                validate=PathValidator(is_dir=True, message="Not a directory"),
+                only_directories=is_output is False,
+                validate=None if is_output else PathValidator(is_dir=True,
+                                                              message="Not a directory"),
             ).execute()
-            history.append(Path(typed).expanduser().resolve())
+            p = Path(typed).expanduser().resolve()
+            if is_output:
+                p.mkdir(parents=True, exist_ok=True)
+            history.append(p)
+            continue
+        if pick == _SENTINEL_MKDIR:
+            name = inquirer.text(
+                message="New folder name:",
+                validate=lambda s: bool(s.strip()) and "/" not in s,
+                invalid_message="Non-empty, no slashes.",
+            ).execute().strip()
+            new_dir = current / name
+            new_dir.mkdir(parents=True, exist_ok=True)
+            history.append(new_dir)
             continue
         if pick.startswith("__FILE__"):
             continue
@@ -168,6 +193,36 @@ def prompt_video_selection(default_folder="videos"):
             default_start = str(folder)
             continue
         return [Path(s) for s in selected]
+
+
+def prompt_output_folder(default="screenshots"):
+    """
+    Ask user: browse for output dir or type path.
+    Returns str path (guaranteed to exist).
+    """
+    mode = inquirer.select(
+        message="Output folder — how to choose?",
+        choices=[
+            Choice("browse", name="📂  Browse & pick / create folder"),
+            Choice("type",   name=f"⌨  Just use default ({default})"),
+            Choice("custom", name="⌨  Type custom path"),
+        ],
+        keybindings=ESC_KEYBIND,
+        mandatory=False,
+    ).execute()
+
+    if mode is None or mode == "type":
+        Path(default).mkdir(parents=True, exist_ok=True)
+        return default
+    if mode == "custom":
+        p = inquirer.text(message="Output folder path:", default=default).execute()
+        Path(p).expanduser().mkdir(parents=True, exist_ok=True)
+        return p
+    folder = browse_for_folder(start=str(Path.cwd()), purpose="output")
+    if folder is None:
+        Path(default).mkdir(parents=True, exist_ok=True)
+        return default
+    return str(folder)
 
 
 def prompt_timestamp(message):
@@ -221,7 +276,7 @@ def flow_extract():
             validate=NumberValidator(),
         ).execute())
 
-    output = inquirer.text(message="Output folder:", default="screenshots").execute()
+    output = prompt_output_folder("screenshots")
     start_sec = prompt_timestamp("Start time (MM:SS, blank = beginning):")
     end_sec = prompt_timestamp("End time (MM:SS, blank = end):")
 
@@ -295,9 +350,7 @@ def flow_detect():
         default="4",
         validate=NumberValidator(),
     ).execute())
-    config["OUTPUT_FOLDER"] = inquirer.text(
-        message="Output folder:", default="screenshots",
-    ).execute()
+    config["OUTPUT_FOLDER"] = prompt_output_folder("screenshots")
 
     character_detector.run(config)
 
