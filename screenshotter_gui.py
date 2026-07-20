@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 try:
-    from PySide6.QtCore import Qt, QSize
+    from PySide6.QtCore import Qt, QSize, QSettings
     from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -55,6 +55,8 @@ QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background: #1c1e23; border: 1px solid #2a2d34; border-radius: 5px;
     padding: 4px 8px; color: #e6e7ea; min-height: 20px;
 }
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button { width: 0; height: 0; border: none; }
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border: 1px solid #4b8bf5;
 }
@@ -119,6 +121,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(QSize(760, 540))
         self.setUnifiedTitleAndToolBarOnMac(True)
         self.worker: GuiWorker | None = None
+        self.settings = QSettings("screenshotter", "main")
 
         # ── Native unified toolbar ──
         tb = QToolBar()
@@ -197,6 +200,21 @@ class MainWindow(QMainWindow):
         vlay.addWidget(self.log_frame)
         self.setCentralWidget(root)
         self.setStyleSheet(QSS)
+
+        # Restore geometry + last tab
+        geo = self.settings.value("geometry")
+        if geo:
+            self.restoreGeometry(geo)
+        try:
+            self._switch(int(self.settings.value("tab", 0)))
+        except (TypeError, ValueError):
+            pass
+
+    def closeEvent(self, e):
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("tab", self.pages.currentIndex())
+        self.settings.sync()
+        super().closeEvent(e)
 
     # ── slots ──
     def _switch(self, idx):

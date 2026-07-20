@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QSpinBox, QComboBox, QListWidget, QListWidgetItem,
     QFileDialog, QGroupBox, QSlider, QMessageBox, QToolButton, QFrame,
+    QAbstractSpinBox,
 )
 
 import frame_extractor
@@ -14,7 +15,9 @@ class DetectPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.selected_videos: list[Path] = []
+        self.settings = QSettings("screenshotter", "detect")
         self._build()
+        self._restore()
 
     def _build(self):
         root = QVBoxLayout(self)
@@ -39,7 +42,12 @@ class DetectPage(QWidget):
         btn_folder.clicked.connect(self._pick_folder)
         btn_files = QPushButton("Files")
         btn_files.clicked.connect(self._pick_files)
+        btn_refresh = QPushButton("↻")
+        btn_refresh.setFixedWidth(30)
+        btn_refresh.setToolTip("Rescan current folder")
+        btn_refresh.clicked.connect(self._refresh)
         row.addWidget(self.folder_edit, 1)
+        row.addWidget(btn_refresh)
         row.addWidget(btn_folder)
         row.addWidget(btn_files)
         vl.addLayout(row)
@@ -110,6 +118,7 @@ class DetectPage(QWidget):
         self.spin_cps.setRange(1, 30)
         self.spin_cps.setValue(1)
         self.spin_cps.setFixedWidth(60)
+        self.spin_cps.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         misc.addWidget(self.spin_cps)
         misc.addSpacing(12)
         misc.addWidget(QLabel("Min gap (s)"))
@@ -117,6 +126,7 @@ class DetectPage(QWidget):
         self.spin_gap.setRange(0, 120)
         self.spin_gap.setValue(4)
         self.spin_gap.setFixedWidth(60)
+        self.spin_gap.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         misc.addWidget(self.spin_gap)
         misc.addStretch(1)
         av.addLayout(misc)
@@ -153,6 +163,21 @@ class DetectPage(QWidget):
         on = self.adv_toggle.isChecked()
         self.adv.setVisible(on)
         self.adv_toggle.setText("▾ Advanced" if on else "▸ Advanced")
+
+    def _refresh(self):
+        folder = self.folder_edit.text().strip()
+        if not folder or not Path(folder).is_dir():
+            return
+        prev = {v.name for v in self.get_checked_videos()}
+        p = Path(folder)
+        self.selected_videos = sorted(
+            f for f in p.iterdir() if f.suffix.lower() in frame_extractor.VIDEO_EXTS
+        )
+        self._refresh_list()
+        for i in range(self.vid_list.count()):
+            it = self.vid_list.item(i)
+            if it.text() not in prev:
+                it.setCheckState(Qt.CheckState.Unchecked)
 
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Video folder", str(Path.home()))
@@ -212,7 +237,7 @@ class DetectPage(QWidget):
             QMessageBox.warning(self, "Nothing to detect",
                                 "Provide a character tag OR a reference folder with images.")
             return None
-        return {
+        cfg = {
             "videos": videos,
             "CHARACTER_TAG": tag,
             "REFERENCE_FOLDER": ref or "references",
@@ -223,3 +248,49 @@ class DetectPage(QWidget):
             "MIN_SECONDS_GAP": self.spin_gap.value(),
             "OUTPUT_FOLDER": self.out_edit.text().strip() or "screenshots",
         }
+        self._persist()
+        return cfg
+
+    def _persist(self):
+        s = self.settings
+        s.setValue("folder", self.folder_edit.text())
+        s.setValue("tag", self.tag_edit.text())
+        s.setValue("ref", self.ref_edit.text())
+        s.setValue("output", self.out_edit.text())
+        s.setValue("tag_thr", self.slider_tag.value())
+        s.setValue("match_thr", self.slider_match.value())
+        s.setValue("combine", self.combo_combine.currentText())
+        s.setValue("cps", self.spin_cps.value())
+        s.setValue("gap", self.spin_gap.value())
+        s.sync()
+
+    def _restore(self):
+        s = self.settings
+        folder = s.value("folder", "")
+        if folder and Path(folder).is_dir():
+            self.folder_edit.setText(folder)
+            p = Path(folder)
+            self.selected_videos = sorted(
+                f for f in p.iterdir() if f.suffix.lower() in frame_extractor.VIDEO_EXTS
+            )
+            self._refresh_list()
+        self.tag_edit.setText(s.value("tag", "") or "")
+        ref = s.value("ref", "references")
+        if ref:
+            self.ref_edit.setText(ref)
+        out = s.value("output", "screenshots")
+        if out:
+            self.out_edit.setText(out)
+        try:
+            self.slider_tag.setValue(int(s.value("tag_thr", 45)))
+            self.slider_match.setValue(int(s.value("match_thr", 72)))
+        except (TypeError, ValueError):
+            pass
+        idx = self.combo_combine.findText(s.value("combine", "either"))
+        if idx >= 0:
+            self.combo_combine.setCurrentIndex(idx)
+        try:
+            self.spin_cps.setValue(int(s.value("cps", 1)))
+            self.spin_gap.setValue(int(s.value("gap", 4)))
+        except (TypeError, ValueError):
+            pass

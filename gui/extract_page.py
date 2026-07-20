@@ -1,11 +1,11 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
     QSpinBox, QDoubleSpinBox, QComboBox, QListWidget, QListWidgetItem,
     QFileDialog, QGroupBox, QMessageBox, QToolButton, QStackedWidget,
-    QFrame,
+    QFrame, QAbstractSpinBox,
 )
 
 import frame_extractor
@@ -15,7 +15,9 @@ class ExtractPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.selected_videos: list[Path] = []
+        self.settings = QSettings("screenshotter", "extract")
         self._build()
+        self._restore()
 
     def _build(self):
         root = QVBoxLayout(self)
@@ -41,7 +43,12 @@ class ExtractPage(QWidget):
         btn_folder.clicked.connect(self._pick_folder)
         btn_files = QPushButton("Files")
         btn_files.clicked.connect(self._pick_files)
+        btn_refresh = QPushButton("↻")
+        btn_refresh.setFixedWidth(30)
+        btn_refresh.setToolTip("Rescan current folder")
+        btn_refresh.clicked.connect(self._refresh)
         row.addWidget(self.folder_edit, 1)
+        row.addWidget(btn_refresh)
         row.addWidget(btn_folder)
         row.addWidget(btn_files)
         vl.addLayout(row)
@@ -61,6 +68,7 @@ class ExtractPage(QWidget):
         self.spin_val.setRange(1, 100000)
         self.spin_val.setValue(50)
         self.spin_val.setFixedWidth(80)
+        self.spin_val.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         main_row.addWidget(self.spin_val)
 
         self.combo_unit = QComboBox()
@@ -109,6 +117,7 @@ class ExtractPage(QWidget):
         self.spin_q.setRange(1, 100)
         self.spin_q.setValue(92)
         self.spin_q.setFixedWidth(70)
+        self.spin_q.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         fmt_row.addWidget(self.spin_q)
         self.combo_fmt.currentTextChanged.connect(
             lambda t: self.spin_q.setEnabled(t == "jpg")
@@ -156,6 +165,18 @@ class ExtractPage(QWidget):
             self.spin_val.setValue(2)
         else:
             self.spin_val.setValue(50)
+
+    def _refresh(self):
+        folder = self.folder_edit.text().strip()
+        if not folder or not Path(folder).is_dir():
+            return
+        prev_checked = {v.name for v in self.get_checked_videos()}
+        self._load_folder(folder)
+        # restore check state
+        for i in range(self.vid_list.count()):
+            it = self.vid_list.item(i)
+            if it.text() not in prev_checked:
+                it.setCheckState(Qt.CheckState.Unchecked)
 
     def _pick_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Video folder", str(Path.home()))
@@ -220,7 +241,48 @@ class ExtractPage(QWidget):
             cfg["every_n_frames"] = self.spin_val.value()
         else:
             cfg["every_seconds"] = float(self.spin_val.value())
+        self._persist()
         return cfg
+
+    def _persist(self):
+        s = self.settings
+        s.setValue("folder", self.folder_edit.text())
+        s.setValue("unit", self.combo_unit.currentText())
+        s.setValue("val", self.spin_val.value())
+        s.setValue("format", self.combo_fmt.currentText())
+        s.setValue("quality", self.spin_q.value())
+        s.setValue("output", self.out_edit.text())
+        s.setValue("start", self.start_edit.text())
+        s.setValue("end", self.end_edit.text())
+        s.sync()
+
+    def _restore(self):
+        s = self.settings
+        folder = s.value("folder", "")
+        if folder and Path(folder).is_dir():
+            self.folder_edit.setText(folder)
+            self._load_folder(folder)
+        unit = s.value("unit", "frames")
+        idx = self.combo_unit.findText(unit)
+        if idx >= 0:
+            self.combo_unit.setCurrentIndex(idx)
+        try:
+            self.spin_val.setValue(int(s.value("val", 50)))
+        except (TypeError, ValueError):
+            pass
+        fmt = s.value("format", "jpg")
+        idx = self.combo_fmt.findText(fmt)
+        if idx >= 0:
+            self.combo_fmt.setCurrentIndex(idx)
+        try:
+            self.spin_q.setValue(int(s.value("quality", 92)))
+        except (TypeError, ValueError):
+            pass
+        out = s.value("output", "screenshots")
+        if out:
+            self.out_edit.setText(out)
+        self.start_edit.setText(s.value("start", "") or "")
+        self.end_edit.setText(s.value("end", "") or "")
 
     @staticmethod
     def _parse_ts(text):
