@@ -35,6 +35,22 @@ First run downloads models automatically (DeepDanbooru ~700MB, EfficientNet ~25M
 
 ---
 
+## Interactive terminal UI (recommended)
+
+```bash
+python screenshotter.py
+```
+
+Opens arrow-key menu. Pick action → pick folder → checkbox-select videos → set options. No typing filenames.
+
+Subcommand passthrough also available:
+```bash
+python screenshotter.py extract video.mp4 -s 5
+python screenshotter.py detect
+```
+
+---
+
 ## Simple mode (no AI, fixed-interval dumps)
 
 Standalone CLI `frame_extractor.py` — screenshot every N frames / seconds. No character matching, no models.

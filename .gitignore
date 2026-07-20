@@ -1,0 +1,60 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Test and tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environment and secrets
+.env
+.env.*
+secrets.json
+*.pem
+*.key
+
+# Project data and generated outputs
+videos/
+references/
+outputs/
+screenshots/
+captures/
+models/
+*.pt
+*.pth
+*.onnx
+*.bin
+*.h5
+*.pb
+
+# Media files commonly used as input/output
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.jpg
+*.jpeg
+*.png
+*.gif
+
+# Logs and temp files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# macOS / editor clutter
+.DS_Store
+.idea/
+.vscode/

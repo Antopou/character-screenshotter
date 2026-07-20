@@ -127,13 +127,38 @@ def build_parser():
     return p
 
 
-def main():
-    args = build_parser().parse_args()
+def run(config):
+    """
+    config keys:
+      videos      : list[Path] | Path | str  (file, folder, or list)
+      output      : str  (default 'screenshots')
+      every_n_frames : int | None
+      every_seconds  : float | None  (default 2.0 if both None)
+      format      : 'jpg' | 'png'    (default 'jpg')
+      quality     : int              (default 92)
+      start_sec   : float | None
+      end_sec     : float | None
+      prefix      : str | None
+    returns: total screenshots saved
+    """
+    vids_arg = config.get("videos")
+    if isinstance(vids_arg, (str, Path)):
+        videos = collect_videos(vids_arg)
+    else:
+        videos = [Path(v) for v in vids_arg]
 
-    videos = collect_videos(args.input)
     if not videos:
         print("No videos found.", file=sys.stderr)
-        sys.exit(1)
+        return 0
+
+    output   = config.get("output", "screenshots")
+    fmt      = config.get("format", "jpg")
+    quality  = config.get("quality", 92)
+    start_s  = config.get("start_sec")
+    end_s    = config.get("end_sec")
+    prefix   = config.get("prefix")
+    n_frames = config.get("every_n_frames")
+    n_secs   = config.get("every_seconds")
 
     total_saved = 0
     for video in videos:
@@ -141,22 +166,41 @@ def main():
         fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
         cap.release()
 
-        if args.every_n_frames is not None:
-            step = max(1, args.every_n_frames)
+        if n_frames is not None:
+            step = max(1, int(n_frames))
         else:
-            secs = args.every_seconds if args.every_seconds is not None else 2.0
+            secs = n_secs if n_secs is not None else 2.0
             step = max(1, int(round(fps * secs)))
 
         try:
             total_saved += process_video(
-                video, args.output, step, args.format, args.quality,
-                args.start, args.end, args.prefix,
+                video, output, step, fmt, quality, start_s, end_s, prefix,
             )
         except KeyboardInterrupt:
             print("\nInterrupted.", file=sys.stderr)
-            sys.exit(130)
+            raise
 
     print(f"\nTotal: {total_saved} screenshots across {len(videos)} video(s).")
+    return total_saved
+
+
+def main():
+    args = build_parser().parse_args()
+    config = {
+        "videos": args.input,
+        "output": args.output,
+        "every_n_frames": args.every_n_frames,
+        "every_seconds": args.every_seconds,
+        "format": args.format,
+        "quality": args.quality,
+        "start_sec": args.start,
+        "end_sec": args.end,
+        "prefix": args.prefix,
+    }
+    try:
+        run(config)
+    except KeyboardInterrupt:
+        sys.exit(130)
 
 
 if __name__ == "__main__":

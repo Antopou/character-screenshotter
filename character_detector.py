@@ -362,7 +362,32 @@ def process_video(video_path, cascade,
 #  Main
 # ────────────────────────────────────────────────────────────
 
+_CONFIG_KEYS = {
+    "CHARACTER_TAG", "TAG_THRESHOLD", "REFERENCE_FOLDER", "MATCH_THRESHOLD",
+    "COMBINE_MODE", "VIDEO_FOLDER", "OUTPUT_FOLDER",
+    "CHECKS_PER_SECOND", "MIN_SECONDS_GAP",
+    "DEDUP_HASH_THRESHOLD", "DEDUP_MEMORY",
+}
+
+
+def run(config=None):
+    """
+    Run character detector. Optional config dict overrides module-level constants.
+    Extra key: 'videos' → explicit list[Path] of videos to process
+              (overrides scanning VIDEO_FOLDER).
+    """
+    if config:
+        overrides = {k: v for k, v in config.items() if k in _CONFIG_KEYS}
+        globals().update(overrides)
+    videos_override = (config or {}).get("videos")
+    return _main_impl(videos_override)
+
+
 def main():
+    return run(None)
+
+
+def _main_impl(videos_override=None):
     print("=" * 62)
     print("  Anime Character Screenshot Tool  v4")
     print("  DeepDanbooru + EfficientNet  (auto-mode)")
@@ -424,16 +449,19 @@ def main():
     print(f"    Min gap         : {MIN_SECONDS_GAP}s")
     print(f"    Dedup           : hash≤{DEDUP_HASH_THRESHOLD}  memory:{DEDUP_MEMORY}\n")
 
-    vid_dir = Path(VIDEO_FOLDER)
-    if not vid_dir.exists():
-        vid_dir.mkdir(parents=True)
-        print(f"  '{VIDEO_FOLDER}' folder created. Add episodes and re-run.")
-        sys.exit(1)
+    if videos_override:
+        videos = [Path(v) for v in videos_override]
+    else:
+        vid_dir = Path(VIDEO_FOLDER)
+        if not vid_dir.exists():
+            vid_dir.mkdir(parents=True)
+            print(f"  '{VIDEO_FOLDER}' folder created. Add episodes and re-run.")
+            sys.exit(1)
 
-    videos = sorted(f for f in vid_dir.iterdir() if f.suffix.lower() in VIDEO_EXTS)
-    if not videos:
-        print(f"  No videos found in '{VIDEO_FOLDER}'.")
-        sys.exit(1)
+        videos = sorted(f for f in vid_dir.iterdir() if f.suffix.lower() in VIDEO_EXTS)
+        if not videos:
+            print(f"  No videos found in '{VIDEO_FOLDER}'.")
+            sys.exit(1)
 
     print(f"  {len(videos)} video(s) to process\n")
     total = sum(
