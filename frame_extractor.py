@@ -42,10 +42,17 @@ def collect_videos(input_path):
 
 
 def process_video(video, out_root, step_frames, fmt, quality,
-                  start_sec, end_sec, prefix):
+                  start_sec, end_sec, prefix,
+                  progress_cb=None, log_cb=None, cancel_cb=None):
+    def _log(msg):
+        if log_cb:
+            log_cb(msg)
+        else:
+            print(msg)
+
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
-        print(f"  Cannot open: {video.name}", file=sys.stderr)
+        _log(f"  Cannot open: {video.name}")
         return 0
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
@@ -68,11 +75,15 @@ def process_video(video, out_root, step_frames, fmt, quality,
     frame_num = start_frame
     saved = 0
     span = max(1, end_frame - start_frame)
-    pbar = tqdm(total=span, unit="f", desc=video.name, dynamic_ncols=True)
+    use_tqdm = progress_cb is None
+    pbar = tqdm(total=span, unit="f", desc=video.name, dynamic_ncols=True) if use_tqdm else None
 
     try:
         while True:
             if frame_num >= end_frame:
+                break
+            if cancel_cb and cancel_cb():
+                _log(f"  Cancelled at frame {frame_num}")
                 break
             grabbed = cap.grab()
             if not grabbed:
@@ -87,15 +98,23 @@ def process_video(video, out_root, step_frames, fmt, quality,
                     fname = f"{name_prefix}_{mm:02d}m{ss:02d}s_f{frame_num}.{ext}"
                     cv2.imwrite(str(out_dir / fname), frame, imwrite_params)
                     saved += 1
-                    pbar.set_postfix(saved=saved)
+                    if pbar:
+                        pbar.set_postfix(saved=saved)
 
             frame_num += 1
-            pbar.update(1)
+            if pbar:
+                pbar.update(1)
+            if progress_cb and frame_num % 30 == 0:
+                pct = (frame_num - start_frame) / span * 100
+                progress_cb(pct, saved, video.name)
     finally:
-        pbar.close()
+        if pbar:
+            pbar.close()
         cap.release()
 
-    print(f"  {video.name}: {saved} saved → {out_dir}")
+    if progress_cb:
+        progress_cb(100.0, saved, video.name)
+    _log(f"  {video.name}: {saved} saved → {out_dir}")
     return saved
 
 
@@ -159,6 +178,9 @@ def run(config):
     prefix   = config.get("prefix")
     n_frames = config.get("every_n_frames")
     n_secs   = config.get("every_seconds")
+    progress_cb = config.get("progress_cb")
+    log_cb      = config.get("log_cb")
+    cancel_cb   = config.get("cancel_cb")
 
     total_saved = 0
     for video in videos:
@@ -175,10 +197,13 @@ def run(config):
         try:
             total_saved += process_video(
                 video, output, step, fmt, quality, start_s, end_s, prefix,
+                progress_cb=progress_cb, log_cb=log_cb, cancel_cb=cancel_cb,
             )
         except KeyboardInterrupt:
             print("\nInterrupted.", file=sys.stderr)
             raise
+        if cancel_cb and cancel_cb():
+            break
 
     print(f"\nTotal: {total_saved} screenshots across {len(videos)} video(s).")
     return total_saved

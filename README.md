@@ -35,18 +35,20 @@ First run downloads models automatically (DeepDanbooru ~700MB, EfficientNet ~25M
 
 ---
 
-## Interactive terminal UI (recommended)
+## Quick run (uv)
 
+First-time setup:
 ```bash
-python screenshotter.py
+uv sync                    # base: extract mode + GUI/TUI
+uv sync --extra detect     # add torch + tensorflow for character detection
 ```
 
-Opens arrow-key menu. Pick action → pick folder → checkbox-select videos → set options. No typing filenames.
-
-Subcommand passthrough also available:
+Then:
 ```bash
-python screenshotter.py extract video.mp4 -s 5
-python screenshotter.py detect
+uv run gui       # desktop GUI (PySide6)
+uv run tui       # terminal UI
+uv run extract   # CLI: frame_extractor
+uv run detect    # CLI: character_detector
 ```
 
 ---

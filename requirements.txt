@@ -7,3 +7,4 @@ torchvision
 tensorflow
 tqdm
 InquirerPy
+PySide6

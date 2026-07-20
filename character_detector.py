@@ -240,14 +240,21 @@ def record_hash(frame):
 def process_video(video_path, cascade,
                   dd_model, dd_tags,          # None if Mode A inactive
                   eff_model, eff_tfm,          # None if Mode B inactive
-                  ref_embeddings):             # [] if Mode B inactive
+                  ref_embeddings,              # [] if Mode B inactive
+                  progress_cb=None, log_cb=None, cancel_cb=None):
+
+    def _log(msg):
+        if log_cb:
+            log_cb(msg)
+        else:
+            print(msg)
 
     use_dd  = dd_model  is not None and dd_tags  is not None
     use_ref = eff_model is not None and len(ref_embeddings) > 0
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
-        print(f"  Cannot open: {video_path.name}")
+        _log(f"  Cannot open: {video_path.name}")
         return 0
 
     fps          = cap.get(cv2.CAP_PROP_FPS) or 24.0
@@ -260,7 +267,7 @@ def process_video(video_path, cascade,
 
     dur_m = int((total_frames / fps) // 60)
     dur_s = int((total_frames / fps) % 60)
-    print(f"\n  {video_path.name}  [{dur_m}m {dur_s}s]")
+    _log(f"\n  {video_path.name}  [{dur_m}m {dur_s}s]")
 
     saved       = 0
     skipped_dup = 0
@@ -268,6 +275,9 @@ def process_video(video_path, cascade,
     last_shot   = -min_gap_frm
 
     while cap.isOpened():
+        if cancel_cb and cancel_cb():
+            _log(f"  Cancelled at frame {frame_num}")
+            break
         grabbed = cap.grab()
         if not grabbed:
             break
@@ -340,10 +350,13 @@ def process_video(video_path, cascade,
                         if use_dd:  scores.append(f"DD:{dd_conf:.2f}")
                         if use_ref: scores.append(f"REF:{ref_conf:.2f}")
                         note = f"  (+{n-1} others)" if n > 1 else ""
-                        print(f"  Screenshot [{pct:5.1f}%] {mm:02d}:{ss:02d}"
-                              f"  {' | '.join(scores)}{note}")
+                        _log(f"  Screenshot [{pct:5.1f}%] {mm:02d}:{ss:02d}"
+                             f"  {' | '.join(scores)}{note}")
 
-        if total_frames > 0 and frame_num % max(1, total_frames // 20) == 0:
+        if progress_cb and frame_num % 30 == 0 and total_frames > 0:
+            pct = frame_num / total_frames * 100
+            progress_cb(pct, saved, video_path.name)
+        elif not progress_cb and total_frames > 0 and frame_num % max(1, total_frames // 20) == 0:
             pct = frame_num / total_frames * 100
             bar = "#" * int(pct // 5) + "-" * (20 - int(pct // 5))
             sys.stdout.write(
@@ -354,7 +367,9 @@ def process_video(video_path, cascade,
         frame_num += 1
 
     cap.release()
-    print(f"\n  Done: {saved} saved,  {skipped_dup} duplicates skipped  →  {out_dir.name}/")
+    if progress_cb:
+        progress_cb(100.0, saved, video_path.name)
+    _log(f"\n  Done: {saved} saved,  {skipped_dup} duplicates skipped  →  {out_dir.name}/")
     return saved
 
 
@@ -373,21 +388,31 @@ _CONFIG_KEYS = {
 def run(config=None):
     """
     Run character detector. Optional config dict overrides module-level constants.
-    Extra key: 'videos' → explicit list[Path] of videos to process
-              (overrides scanning VIDEO_FOLDER).
+    Extra keys:
+      videos      : explicit list[Path] (overrides VIDEO_FOLDER scan)
+      progress_cb : callable(pct, saved, video_name)
+      log_cb      : callable(str)
+      cancel_cb   : callable() -> bool
     """
     if config:
         overrides = {k: v for k, v in config.items() if k in _CONFIG_KEYS}
         globals().update(overrides)
-    videos_override = (config or {}).get("videos")
-    return _main_impl(videos_override)
+    cfg = config or {}
+    return _main_impl(
+        videos_override=cfg.get("videos"),
+        progress_cb=cfg.get("progress_cb"),
+        log_cb=cfg.get("log_cb"),
+        cancel_cb=cfg.get("cancel_cb"),
+    )
 
 
 def main():
     return run(None)
 
 
-def _main_impl(videos_override=None):
+def _main_impl(videos_override=None, progress_cb=None, log_cb=None, cancel_cb=None):
+    def _log(m):
+        (log_cb or print)(m)
     print("=" * 62)
     print("  Anime Character Screenshot Tool  v4")
     print("  DeepDanbooru + EfficientNet  (auto-mode)")
@@ -464,10 +489,15 @@ def _main_impl(videos_override=None):
             sys.exit(1)
 
     print(f"  {len(videos)} video(s) to process\n")
-    total = sum(
-        process_video(v, cascade, dd_model, dd_tags, eff_model, eff_tfm, ref_embeddings)
-        for v in videos
-    )
+    total = 0
+    for v in videos:
+        if cancel_cb and cancel_cb():
+            _log("Cancelled.")
+            break
+        total += process_video(
+            v, cascade, dd_model, dd_tags, eff_model, eff_tfm, ref_embeddings,
+            progress_cb=progress_cb, log_cb=log_cb, cancel_cb=cancel_cb,
+        )
 
     print("\n" + "=" * 62)
     print(f"  All done!  Total screenshots: {total}")
