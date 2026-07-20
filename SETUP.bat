@@ -32,7 +32,7 @@ echo HOW TO USE:
 echo.
 echo   CHARACTER ON DANBOORU (recommended):
 echo     1. Find tag at https://danbooru.donmai.us
-echo     2. Open anime_screenshotter.py in Notepad
+echo     2. Open character_detector.py in Notepad
 echo     3. Set CHARACTER_TAG = "the_tag"
 echo.
 echo   CHARACTER NOT ON DANBOORU:

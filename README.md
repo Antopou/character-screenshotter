@@ -10,7 +10,7 @@ even in group scenes. Skips near-duplicate frames automatically.
 
 ### Option A — Character is on Danbooru (best accuracy)
 1. Find tag at **https://danbooru.donmai.us**
-2. Open `character_screenshotter.py` in Notepad
+2. Open `character_detector.py` in Notepad
 3. Set: `CHARACTER_TAG = "irido_yume"`
 4. Leave `references/` folder empty
 
@@ -32,6 +32,22 @@ even in group scenes. Skips near-duplicate frames automatically.
 4. Run **RUN.bat**
 
 First run downloads models automatically (DeepDanbooru ~700MB, EfficientNet ~25MB).
+
+---
+
+## Simple mode (no AI, fixed-interval dumps)
+
+Standalone CLI `frame_extractor.py` — screenshot every N frames / seconds. No character matching, no models.
+
+```bash
+python frame_extractor.py video.mp4 -s 5          # every 5 seconds
+python frame_extractor.py video.mp4 -n 300 -f png # every 300 frames, PNG
+python frame_extractor.py videos/ -s 2 --start 00:30 --end 05:00
+```
+
+Flags: `-o OUTPUT`, `-n N_FRAMES`, `-s SECONDS`, `-f {jpg,png}`, `-q QUALITY`, `--start MM:SS`, `--end MM:SS`, `--prefix STR`.
+
+Progress bar via `tqdm`. Requires `tqdm` in requirements.
 
 ---
 
