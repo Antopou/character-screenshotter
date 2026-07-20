@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Screenshotter — Desktop GUI (PySide6)."""
+"""vidframe — Desktop GUI (PySide6)."""
 
 import sys
 from pathlib import Path
@@ -144,12 +144,12 @@ class SegButton(QToolButton):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("screenshotter")
+        self.setWindowTitle("vidframe")
         self.resize(880, 620)
         self.setMinimumSize(QSize(760, 540))
         self.setUnifiedTitleAndToolBarOnMac(True)
         self.worker: GuiWorker | None = None
-        self.settings = QSettings("screenshotter", "main")
+        self.settings = QSettings("vidframe", "main")
 
         # ── Native unified toolbar ──
         tb = QToolBar()
@@ -336,7 +336,7 @@ def _make_titlebar_transparent(win):
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("Screenshotter")
+    app.setApplicationName("vidframe")
     icon_path = Path(__file__).parent / "assets" / "icon.svg"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))

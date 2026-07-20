@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Screenshotter — Terminal UI
+vidframe — Terminal UI
 
 Interactive menu for:
   - Extract frames at interval  (frame_extractor.run)
@@ -8,9 +8,9 @@ Interactive menu for:
 
 Run with no args → TUI. Run with subcommand → CLI passthrough.
 
-    python screenshotter.py                   # interactive
-    python screenshotter.py extract ...       # forwards to frame_extractor
-    python screenshotter.py detect            # forwards to character_detector
+    python vidframe.py                   # interactive
+    python vidframe.py extract ...       # forwards to frame_extractor
+    python vidframe.py detect            # forwards to character_detector
 """
 
 import sys
@@ -357,7 +357,7 @@ def flow_detect():
 
 def tui_loop():
     print("=" * 62)
-    print("  Character Screenshotter — Terminal UI")
+    print("  vidframe — Terminal UI")
     print("=" * 62)
 
     print("  Exit: pick 'Quit', press ESC on main menu, or Ctrl+C anywhere.")

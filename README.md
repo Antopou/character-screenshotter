@@ -1,61 +1,50 @@
-# Anime Character Screenshot Tool  v4
-### DeepDanbooru v3 + EfficientNet — smart auto-mode
+# vidframe
 
-Automatically takes screenshots when your chosen character appears,
-even in group scenes. Skips near-duplicate frames automatically.
+Extract frames from videos at fixed intervals, or auto-screenshot when a
+specific anime character appears. Ships with CLI, TUI, and desktop GUI.
 
----
-
-## Three ways to use it
-
-### Option A — Character is on Danbooru (best accuracy)
-1. Find tag at **https://danbooru.donmai.us**
-2. Open `character_detector.py` in Notepad
-3. Set: `CHARACTER_TAG = "irido_yume"`
-4. Leave `references/` folder empty
-
-### Option B — Character NOT on Danbooru (post-2021 anime etc.)
-1. Take **5-10 clear face screenshots** of the character from the anime
-2. Put them in the **`references/`** folder
-3. Leave `CHARACTER_TAG = ""` in the script
-
-### Option C — Both at once (highest accuracy)
-- Set `CHARACTER_TAG` AND add reference images
-- Set `COMBINE_MODE = "either"` for more results, `"both"` for fewer but stricter
+Detection combines **DeepDanbooru v3** (tag-based) + **EfficientNet**
+(reference-image similarity). Near-duplicate frames dropped automatically.
 
 ---
 
-## Quick start
-1. Run **SETUP.bat** (first time only)
-2. Configure as above
-3. Put episodes in **`videos/`**
-4. Run **RUN.bat**
+## Install
 
-First run downloads models automatically (DeepDanbooru ~700MB, EfficientNet ~25MB).
-
----
-
-## Quick run (uv)
-
-First-time setup:
 ```bash
-uv sync                    # base: extract mode + GUI/TUI
+uv sync                    # base: extract + GUI/TUI
 uv sync --extra detect     # add torch + tensorflow for character detection
 ```
 
-Then:
+First detection run downloads models (DeepDanbooru ~700MB, EfficientNet ~25MB).
+
+---
+
+## Run
+
 ```bash
-uv run gui       # desktop GUI (PySide6)
-uv run tui       # terminal UI
-uv run extract   # CLI: frame_extractor
-uv run detect    # CLI: character_detector
+uv run vidframe-gui   # desktop GUI (PySide6)
+uv run vidframe       # terminal UI
+uv run extract        # CLI: frame_extractor
+uv run detect         # CLI: character_detector
 ```
 
 ---
 
-## Simple mode (no AI, fixed-interval dumps)
+## GUI
 
-Standalone CLI `frame_extractor.py` — screenshot every N frames / seconds. No character matching, no models.
+Two tabs: **Extract** and **Detect**.
+
+- Path fields autocomplete directories inline (ghost text). `Tab` accepts,
+  `Shift+Tab` cycles matches, `↓/↑` navigate popup. History ranked by MRU.
+- Video list: `↑/↓` navigates, `Enter` toggles check, `Esc` clears
+  selection, `Shift+Enter` starts the job.
+- Settings persist across sessions (QSettings org `vidframe`).
+
+---
+
+## CLI — extract (no AI)
+
+Fixed-interval frame dumps. No models needed.
 
 ```bash
 python frame_extractor.py video.mp4 -s 5          # every 5 seconds
@@ -63,15 +52,31 @@ python frame_extractor.py video.mp4 -n 300 -f png # every 300 frames, PNG
 python frame_extractor.py videos/ -s 2 --start 00:30 --end 05:00
 ```
 
-Flags: `-o OUTPUT`, `-n N_FRAMES`, `-s SECONDS`, `-f {jpg,png}`, `-q QUALITY`, `--start MM:SS`, `--end MM:SS`, `--prefix STR`.
-
-Progress bar via `tqdm`. Requires `tqdm` in requirements.
+Flags: `-o OUTPUT`, `-n N_FRAMES`, `-s SECONDS`, `-f {jpg,png}`, `-q QUALITY`,
+`--start MM:SS`, `--end MM:SS`, `--prefix STR`. Progress via `tqdm`.
 
 ---
 
-## Settings
+## Detection modes
 
-| Setting | Default | What it does |
+### A — Character on Danbooru (best accuracy)
+1. Find tag at https://danbooru.donmai.us
+2. Set `CHARACTER_TAG = "irido_yume"` in `character_detector.py`
+3. Leave `references/` empty.
+
+### B — Character not on Danbooru
+1. Save 5–10 clear face screenshots to `references/`
+2. Leave `CHARACTER_TAG = ""`.
+
+### C — Both (highest accuracy)
+- Set `CHARACTER_TAG` **and** add reference images.
+- `COMBINE_MODE = "either"` → more results. `"both"` → stricter.
+
+---
+
+## Detector settings
+
+| Setting | Default | Meaning |
 |---|---|---|
 | `CHARACTER_TAG` | `""` | Danbooru tag. Empty = skip DeepDanbooru |
 | `TAG_THRESHOLD` | `0.45` | DeepDanbooru confidence needed |
@@ -84,9 +89,11 @@ Progress bar via `tqdm`. Requires `tqdm` in requirements.
 
 ---
 
-## Screenshot filename explained
+## Screenshot filename format
+
 `05m32s_dd0.67_ref0.74_+2others.png`
-- `05m32s` = timestamp (5 min 32 sec)
-- `dd0.67` = DeepDanbooru confidence
-- `ref0.74` = Reference image similarity
-- `+2others` = 2 other characters also visible in the scene
+
+- `05m32s` — timestamp
+- `dd0.67` — DeepDanbooru confidence
+- `ref0.74` — reference similarity
+- `+2others` — other characters visible in scene

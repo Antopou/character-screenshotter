@@ -17,7 +17,7 @@ class DetectPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.selected_videos: list[Path] = []
-        self.settings = QSettings("screenshotter", "detect")
+        self.settings = QSettings("vidframe", "detect")
         self._last_row: int = -1
         self._build()
         self._restore()

@@ -1,5 +1,5 @@
 [project]
-name = "character-screenshotter"
+name = "vidframe"
 version = "0.2.0"
 description = "Extract frames or detect anime characters from videos. CLI, TUI, and GUI."
 requires-python = ">=3.10"
@@ -23,10 +23,10 @@ detect = [
 ]
 
 [project.scripts]
-gui     = "screenshotter_gui:main"
-tui     = "screenshotter:main"
-extract = "frame_extractor:main"
-detect  = "character_detector:main"
+vidframe     = "vidframe:main"
+vidframe-gui = "vidframe_gui:main"
+extract      = "frame_extractor:main"
+detect       = "character_detector:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -35,8 +35,8 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["gui"]
 py-modules = [
-    "screenshotter",
-    "screenshotter_gui",
+    "vidframe",
+    "vidframe_gui",
     "frame_extractor",
     "character_detector",
 ]

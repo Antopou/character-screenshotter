@@ -42,7 +42,7 @@ class _PathHistory:
     _instance = None
 
     def __init__(self):
-        self._settings = QSettings("screenshotter", "path_history")
+        self._settings = QSettings("vidframe", "path_history")
         raw = self._settings.value("picks", {}) or {}
         self._picks: dict[str, list[str]] = {
             k: list(v) for k, v in raw.items() if isinstance(v, (list, tuple))

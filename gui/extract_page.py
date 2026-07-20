@@ -17,7 +17,7 @@ class ExtractPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.selected_videos: list[Path] = []
-        self.settings = QSettings("screenshotter", "extract")
+        self.settings = QSettings("vidframe", "extract")
         self._last_row: int = -1
         self._build()
         self._restore()
