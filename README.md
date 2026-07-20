@@ -10,7 +10,7 @@ even in group scenes. Skips near-duplicate frames automatically.
 
 ### Option A — Character is on Danbooru (best accuracy)
 1. Find tag at **https://danbooru.donmai.us**
-2. Open `anime_screenshotter.py` in Notepad
+2. Open `character_screenshotter.py` in Notepad
 3. Set: `CHARACTER_TAG = "irido_yume"`
 4. Leave `references/` folder empty
 
