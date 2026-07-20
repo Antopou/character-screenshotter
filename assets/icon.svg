@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1c22"/>
+      <stop offset="1" stop-color="#0d0e11"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Apple HIG: squircle sits inside ~824x824 safe area, centered in 1024 -->
+  <rect x="100" y="100" width="824" height="824" rx="180"
+        fill="url(#bg)" stroke="#2a2d34" stroke-width="6"/>
+
+  <!-- crop-mark corners -->
+  <g fill="none" stroke="#4b8bf5" stroke-width="28" stroke-linecap="round">
+    <path d="M260 350 V260 H360"/>
+    <path d="M764 350 V260 H664"/>
+    <path d="M260 674 V764 H360"/>
+    <path d="M764 674 V764 H664"/>
+  </g>
+
+  <!-- play triangle -->
+  <path d="M420 360 L420 664 L660 512 Z" fill="#e6e7ea"/>
+
+  <!-- cursor blink -->
+  <rect x="680" y="820" width="60" height="16" rx="3" fill="#4b8bf5"/>
+</svg>

@@ -11,6 +11,7 @@ dependencies = [
     "tqdm",
     "InquirerPy",
     "PySide6",
+    "pyobjc-framework-Cocoa; sys_platform == 'darwin'",
 ]
 
 [project.optional-dependencies]

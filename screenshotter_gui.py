@@ -2,13 +2,15 @@
 """Screenshotter — Desktop GUI (PySide6)."""
 
 import sys
+from pathlib import Path
 
 try:
     from PySide6.QtCore import Qt, QSize
+    from PySide6.QtGui import QIcon
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
         QPushButton, QStackedWidget, QProgressBar, QFrame, QToolButton,
-        QSizePolicy,
+        QSizePolicy, QToolBar,
     )
 except ImportError:
     print("Missing dependency: PySide6", file=sys.stderr)
@@ -24,20 +26,22 @@ from gui.log_console import LogConsole
 
 
 QSS = """
-* { font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif; font-size: 12px; }
+* { font-family: "Menlo", "JetBrains Mono", "Consolas", monospace; font-size: 12px; }
 QMainWindow, QWidget { background: #17181c; color: #e6e7ea; }
 
-/* Top bar */
-#topbar { background: #101114; border-bottom: 1px solid #24262c; }
-#brand  { color: #e6e7ea; font-weight: 700; font-size: 13px; padding-left: 4px; letter-spacing: 0.3px; }
+/* Native unified toolbar — force our own bg so titlebar tint doesn't stand out */
+QToolBar#maintoolbar {
+    background: #17181c; border: none; border-bottom: 1px solid #22242a;
+    padding: 4px 8px; spacing: 4px;
+}
+QToolBar#maintoolbar::separator { width: 0; }
 
-/* Segmented tabs */
 QToolButton[seg="true"] {
     background: transparent; color: #8a8f98; border: none;
-    padding: 6px 14px; border-radius: 6px; font-weight: 600;
+    padding: 4px 12px; border-radius: 5px; font-weight: 600;
 }
-QToolButton[seg="true"]:hover { color: #e6e7ea; background: #1e2026; }
-QToolButton[seg="true"]:checked { color: #ffffff; background: #2a2d34; }
+QToolButton[seg="true"]:hover { color: #e6e7ea; background: rgba(255,255,255,0.05); }
+QToolButton[seg="true"]:checked { color: #ffffff; background: rgba(255,255,255,0.10); }
 
 /* Inputs */
 QGroupBox {
@@ -110,32 +114,31 @@ class SegButton(QToolButton):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Screenshotter")
-        self.resize(880, 640)
-        self.setMinimumSize(QSize(760, 560))
+        self.setWindowTitle("screenshotter")
+        self.resize(880, 620)
+        self.setMinimumSize(QSize(760, 540))
+        self.setUnifiedTitleAndToolBarOnMac(True)
         self.worker: GuiWorker | None = None
 
-        # ── Top bar (segmented tabs) ──
-        topbar = QFrame()
-        topbar.setObjectName("topbar")
-        topbar.setFixedHeight(44)
-        top_lay = QHBoxLayout(topbar)
-        top_lay.setContentsMargins(14, 6, 14, 6)
-        top_lay.setSpacing(4)
-
-        brand = QLabel("Screenshotter")
-        brand.setObjectName("brand")
-        top_lay.addWidget(brand)
-        top_lay.addSpacing(20)
+        # ── Native unified toolbar ──
+        tb = QToolBar()
+        tb.setObjectName("maintoolbar")
+        tb.setMovable(False)
+        tb.setFloatable(False)
+        tb.setIconSize(QSize(16, 16))
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, tb)
 
         self.tab_extract = SegButton("Extract")
         self.tab_detect  = SegButton("Detect")
         self.tab_extract.setChecked(True)
         self.tab_extract.clicked.connect(lambda: self._switch(0))
         self.tab_detect.clicked.connect(lambda: self._switch(1))
-        top_lay.addWidget(self.tab_extract)
-        top_lay.addWidget(self.tab_detect)
-        top_lay.addStretch(1)
+        tb.addWidget(self.tab_extract)
+        tb.addWidget(self.tab_detect)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        tb.addWidget(spacer)
 
         self.log_toggle = QToolButton()
         self.log_toggle.setText("Log ▾")
@@ -143,7 +146,7 @@ class MainWindow(QMainWindow):
         self.log_toggle.setCheckable(True)
         self.log_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.log_toggle.clicked.connect(self._toggle_log)
-        top_lay.addWidget(self.log_toggle)
+        tb.addWidget(self.log_toggle)
 
         # ── Pages ──
         self.pages = QStackedWidget()
@@ -189,7 +192,6 @@ class MainWindow(QMainWindow):
         vlay = QVBoxLayout(root)
         vlay.setContentsMargins(0, 0, 0, 0)
         vlay.setSpacing(0)
-        vlay.addWidget(topbar)
         vlay.addWidget(self.pages, 1)
         vlay.addWidget(status)
         vlay.addWidget(self.log_frame)
@@ -255,11 +257,44 @@ class MainWindow(QMainWindow):
             self.worker.cancel()
 
 
+def _apply_dark_appearance():
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import NSApp, NSAppearance
+        NSApp.setAppearance_(NSAppearance.appearanceNamed_("NSAppearanceNameDarkAqua"))
+    except Exception as e:
+        print(f"[appearance] {e}", file=sys.stderr)
+
+
+def _make_titlebar_transparent(win):
+    if sys.platform != "darwin":
+        return
+    try:
+        import ctypes
+        import objc
+        view_ptr = int(win.winId())
+        nsview = objc.objc_object(c_void_p=ctypes.c_void_p(view_ptr))
+        nswin = nsview.window()
+        nswin.setTitlebarAppearsTransparent_(True)
+        nswin.setTitleVisibility_(1)  # NSWindowTitleHidden
+        nswin.setStyleMask_(nswin.styleMask() | (1 << 15))  # FullSizeContentView
+    except Exception as e:
+        print(f"[titlebar] pyobjc unavailable: {e}", file=sys.stderr)
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Screenshotter")
+    icon_path = Path(__file__).parent / "assets" / "icon.svg"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
     win = MainWindow()
+    if icon_path.exists():
+        win.setWindowIcon(QIcon(str(icon_path)))
     win.show()
+    _apply_dark_appearance()
+    _make_titlebar_transparent(win)
     sys.exit(app.exec())
 
 
