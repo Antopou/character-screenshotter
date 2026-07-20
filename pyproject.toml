@@ -24,6 +24,7 @@ detect = [
 
 [project.scripts]
 vidframe     = "vidframe:main"
+gui          = "vidframe_gui:main"
 vidframe-gui = "vidframe_gui:main"
 extract      = "frame_extractor:main"
 detect       = "character_detector:main"

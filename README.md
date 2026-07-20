@@ -22,7 +22,7 @@ First detection run downloads models (DeepDanbooru ~700MB, EfficientNet ~25MB).
 ## Run
 
 ```bash
-uv run vidframe-gui   # desktop GUI (PySide6)
+uv run gui            # desktop GUI (PySide6)
 uv run vidframe       # terminal UI
 uv run extract        # CLI: frame_extractor
 uv run detect         # CLI: character_detector

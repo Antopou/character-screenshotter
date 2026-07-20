@@ -63,6 +63,17 @@ CASCADE_FILE = "lbpcascade_animeface.xml"
 VIDEO_EXTS   = {'.mkv', '.mp4', '.avi', '.mov', '.m2ts', '.ts'}
 
 
+def _quiet_opencv_logs():
+    try:
+        # Keep OpenCV's FFmpeg backend from printing benign EOF warnings.
+        cv2.setLogLevel(2)
+    except Exception:
+        pass
+
+
+_quiet_opencv_logs()
+
+
 # ────────────────────────────────────────────────────────────
 #  Cascade (face detector — shared by both modes)
 # ────────────────────────────────────────────────────────────

@@ -20,6 +20,17 @@ from tqdm import tqdm
 VIDEO_EXTS = {".mkv", ".mp4", ".avi", ".mov", ".m2ts", ".ts"}
 
 
+def _quiet_opencv_logs():
+    try:
+        # Keep OpenCV's FFmpeg backend from printing benign EOF warnings.
+        cv2.setLogLevel(2)
+    except Exception:
+        pass
+
+
+_quiet_opencv_logs()
+
+
 def parse_ts(s):
     """Parse 'MM:SS' or 'HH:MM:SS' to seconds (float)."""
     parts = s.split(":")
