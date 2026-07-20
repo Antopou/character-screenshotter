@@ -18,6 +18,7 @@ class ExtractPage(QWidget):
         super().__init__(parent)
         self.selected_videos: list[Path] = []
         self.settings = QSettings("screenshotter", "extract")
+        self._last_row: int = -1
         self._build()
         self._restore()
         self._wire_shortcuts()
@@ -203,14 +204,13 @@ class ExtractPage(QWidget):
         sc.activated.connect(self._focus_list)
 
     def _focus_list(self):
-        if self.vid_list.count() > 0:
-            if self.vid_list.currentRow() < 0:
-                self.vid_list.setCurrentRow(0)
-            self.vid_list.setFocus()
-        else:
-            fw = self.focusWidget()
-            if fw:
-                fw.clearFocus()
+        row = self.vid_list.currentRow()
+        if row >= 0:
+            self._last_row = row
+        self.vid_list.setCurrentRow(-1)
+        fw = self.focusWidget()
+        if fw:
+            fw.clearFocus()
 
     def _set_tab_order(self):
         QWidget.setTabOrder(self.folder_edit, self.chk_all)
@@ -224,12 +224,13 @@ class ExtractPage(QWidget):
             if self.vid_list.count() > 0:
                 row = self.vid_list.currentRow()
                 if row < 0:
-                    row = 0
+                    row = min(self.vid_list.count() - 1, self._last_row + 1) if self._last_row >= 0 else 0
                 elif e.key() == Qt.Key.Key_Up:
                     row = max(0, row - 1)
                 else:
                     row = min(self.vid_list.count() - 1, row + 1)
                 self.vid_list.setCurrentRow(row)
+                self._last_row = row
                 self.vid_list.setFocus()
                 return
         super().keyPressEvent(e)
@@ -296,8 +297,7 @@ class ExtractPage(QWidget):
             it.setData(Qt.ItemDataRole.UserRole, str(v))
             self.vid_list.addItem(it)
         self.vid_list.blockSignals(False)
-        if self.vid_list.count() > 0:
-            self.vid_list.setCurrentRow(0)
+        self.vid_list.setCurrentRow(-1)
         self._update_master()
 
     def _toggle_all(self):
